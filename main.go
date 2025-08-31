@@ -95,7 +95,12 @@ func Vectorise(documents []string) ([][]float32, error) {
 }
 
 func main() {
-	os.Setenv("ONNX_PATH", "/Users/sharathsureshkumar/Projects/Code/vector-db/onnx_dylib/onnxruntime_arm64.dylib")
+
+	onnxPath := os.Getenv("ONNX_PATH")
+	if onnxPath == ""{
+		//Try setting ONNX_PATH
+		os.Setenv("ONNX_PATH", "./onnx_dylib/onnxruntime_arm64.dylib")
+	}
 
 	documents := []string{
 		"Hello",
@@ -108,7 +113,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(len(embeddings[0]))
 
 	query := []string{
 		"query: Who was on disney?",
