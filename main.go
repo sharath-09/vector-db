@@ -10,17 +10,14 @@ import (
 	"github.com/chewxy/math32"
 )
 
-// type VectorIndex[T comparable] struct {
-// 	NumberofRoots int
-// 	NumberofDimensions int
-// 	MaxItemsPerLeafNode int
-// 	Roots []*treeNode[T]
-
-// }
-
 type FlatIndex struct {
 	Vectors [][]float32
 	Text []string
+}
+
+type GraphNode struct {
+	Embedding []float32
+	Text string
 }
 
 func cosineDistance (v1 []float32, v2 []float32) float32{
@@ -50,16 +47,16 @@ func cosineDistance (v1 []float32, v2 []float32) float32{
 } 
 
 
-func (f FlatIndex) searchIndex (query []string) ([]float32, error) {
+func (f FlatIndex) searchIndex (query []string) (GraphNode, error) {
 	//embed query
 	queryEmbedding, err := vectorise(query)
 	if err != nil{
 		log.Fatal(err)
 	}
 	if len(queryEmbedding[0]) != len(f.Vectors[0]){
-		return nil, errors.New("mismatch vector shape")
+		return GraphNode{}, errors.New("mismatch vector shape")
 	}
-	var closestVector []float32
+	var closestVector GraphNode
 	var shortestDistance float32 = math32.MaxFloat32
 	var idx2 = 0
 	for idx := range(f.Vectors){
@@ -68,7 +65,8 @@ func (f FlatIndex) searchIndex (query []string) ([]float32, error) {
 		}
 		distance := cosineDistance(queryEmbedding[idx2], f.Vectors[idx])
 		if distance < shortestDistance{
-			closestVector = f.Vectors[idx]
+			shortestDistance = distance
+			closestVector = GraphNode{Embedding: f.Vectors[idx], Text: f.Text[idx]}
 		}
 		idx2 += 1
 	}
@@ -99,13 +97,12 @@ func vectorise(documents []string) ([][]float32, error) {
 
 
 func main(){
-	os.Setenv("ONNX_PATH", "/Users/sharathsureshkumar/Projects/Code/vector-db/lib/onnxruntime_arm64.dylib")
+	os.Setenv("ONNX_PATH", "/Users/sharathsureshkumar/Projects/Code/vector-db/onnx_dylib/onnxruntime_arm64.dylib")
 
 	documents := []string{
 	"passage: Hello, World!",
-	"query: Hello, World!",
 	"passage: This is an example passage.",
-	// You can leave out the prefix but it's recommended
+	"passage: Mickey Mouse was on Disney",
 	"fastembed-go is licensed under MIT",
 	}
 
@@ -115,17 +112,14 @@ func main(){
 	}
 
 	query := []string{
-		"query: Who was the first president?",
+		"query: Who was on disney?",
 	}
 
 	f := FlatIndex{Vectors: embeddings, Text: documents}
-	fmt.Println(len(documents))
 
 	v_match, err := f.searchIndex(query)
 	if err != nil{
 		log.Fatal(err)
 	}
-
-	fmt.Println(len(embeddings))
-	fmt.Println(v_match)
+	fmt.Println(v_match.Text)
 }
