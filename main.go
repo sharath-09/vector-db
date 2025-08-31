@@ -1,10 +1,10 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
-	"errors"
 
 	"github.com/anush008/fastembed-go"
 	"github.com/chewxy/math32"
@@ -12,16 +12,16 @@ import (
 
 type FlatIndex struct {
 	Vectors [][]float32
-	Text []string
+	Text    []string
 }
 
 type GraphNode struct {
 	Embedding []float32
-	Text string
+	Text      string
 }
 
-func cosineDistance (v1 []float32, v2 []float32) float32{
-	//source: https://github.com/tobias-mayer/vector-db/blob/f4bae4b955a151ac4a524a11b5d08993e4a32d61/pkg/index/distanceMeasure.go#L15
+func cosineDistance(v1 []float32, v2 []float32) float32 {
+	//reference implemenation: https://github.com/tobias-mayer/vector-db/blob/f4bae4b955a151ac4a524a11b5d08993e4a32d61/pkg/index/distanceMeasure.go#L15
 	if len(v1) != len(v2) || len(v1) == 0 {
 		return 0
 	}
@@ -30,7 +30,7 @@ func cosineDistance (v1 []float32, v2 []float32) float32{
 	var magA float32 = 0.0
 	var magB float32 = 0.0
 
-	for i := 0; i < len(v1); i++{
+	for i := 0; i < len(v1); i++ {
 		dotProduct += v1[i] * v2[i]
 		magA += v1[i] * v2[i]
 		magB += v2[i] * v2[i]
@@ -44,27 +44,26 @@ func cosineDistance (v1 []float32, v2 []float32) float32{
 	}
 
 	return -dotProduct / (magA * magB)
-} 
+}
 
-
-func (f FlatIndex) searchIndex (query []string) (GraphNode, error) {
+func (f FlatIndex) SearchIndex(query []string) (GraphNode, error) {
 	//embed query
-	queryEmbedding, err := vectorise(query)
-	if err != nil{
+	queryEmbedding, err := Vectorise(query)
+	if err != nil {
 		log.Fatal(err)
 	}
-	if len(queryEmbedding[0]) != len(f.Vectors[0]){
+	if len(queryEmbedding[0]) != len(f.Vectors[0]) {
 		return GraphNode{}, errors.New("mismatch vector shape")
 	}
 	var closestVector GraphNode
 	var shortestDistance float32 = math32.MaxFloat32
 	var idx2 = 0
-	for idx := range(f.Vectors){
-		if idx2 >= len(queryEmbedding){
+	for idx := range f.Vectors {
+		if idx2 >= len(queryEmbedding) {
 			idx2 = 0
 		}
 		distance := cosineDistance(queryEmbedding[idx2], f.Vectors[idx])
-		if distance < shortestDistance{
+		if distance < shortestDistance {
 			shortestDistance = distance
 			closestVector = GraphNode{Embedding: f.Vectors[idx], Text: f.Text[idx]}
 		}
@@ -73,43 +72,43 @@ func (f FlatIndex) searchIndex (query []string) (GraphNode, error) {
 	return closestVector, nil
 }
 
-func vectorise(documents []string) ([][]float32, error) {
-	options := fastembed.InitOptions{	
-	Model: fastembed.BGEBaseENV15,
-	CacheDir:  "model_cache",
-	MaxLength: 200,
+func Vectorise(documents []string) ([][]float32, error) {
+	options := fastembed.InitOptions{
+		Model:     fastembed.BGEBaseENV15,
+		CacheDir:  "model_cache",
+		MaxLength: 200,
 	}
 
 	model, err := fastembed.NewFlagEmbedding(&options)
 	if err != nil {
-	panic(err)
+		panic(err)
 	}
 
 	defer model.Destroy()
 
 	// Generate embeddings with a batch-size of 25, defaults to 256
-	embeddings, err := model.Embed(documents, 25)  //  -> Embeddings length: 4
+	embeddings, err := model.Embed(documents, 25) //  -> Embeddings length: 4
 	if err != nil {
-	panic(err)
+		panic(err)
 	}
 	return embeddings, nil
 }
 
-
-func main(){
+func main() {
 	os.Setenv("ONNX_PATH", "/Users/sharathsureshkumar/Projects/Code/vector-db/onnx_dylib/onnxruntime_arm64.dylib")
 
 	documents := []string{
-	"passage: Hello, World!",
-	"passage: This is an example passage.",
-	"passage: Mickey Mouse was on Disney",
-	"fastembed-go is licensed under MIT",
+		"Hello",
+		"passage: This is an example passage.",
+		"passage: Mickey Mouse was on Disney",
+		"fastembed-go is licensed under MIT",
 	}
 
-	embeddings, err := vectorise(documents)
+	embeddings, err := Vectorise(documents)
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Println(len(embeddings[0]))
 
 	query := []string{
 		"query: Who was on disney?",
@@ -117,8 +116,8 @@ func main(){
 
 	f := FlatIndex{Vectors: embeddings, Text: documents}
 
-	v_match, err := f.searchIndex(query)
-	if err != nil{
+	v_match, err := f.SearchIndex(query)
+	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println(v_match.Text)
